@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
-import { colors } from '../../theme';
+import { useTheme } from '../../theme';
 
 const LoginScreen = ({ navigation }) => {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -35,14 +36,14 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.content}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your account</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Sign in to your account</Text>
         </View>
 
         <View style={styles.form}>
@@ -63,17 +64,17 @@ const LoginScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
+          <Text style={[styles.footerText, { color: colors.textSecondary }]}>
             Don't have an account?{' '}
             <Text
-              style={styles.linkText}
+              style={[styles.linkText, { color: colors.primary }]}
               onPress={() => navigation.navigate('Register')}
             >
               Sign Up
             </Text>
           </Text>
           <Text
-            style={styles.linkText}
+            style={[styles.linkText, { color: colors.primary }]}
             onPress={() => navigation.navigate('ForgotPassword')}
           >
             Forgot Password?
@@ -87,7 +88,6 @@ const LoginScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     flex: 1,
@@ -101,12 +101,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
   },
   form: {
     marginBottom: 30,
@@ -116,11 +114,9 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: colors.textSecondary,
     marginBottom: 10,
   },
   linkText: {
-    color: colors.primary,
     fontWeight: '600',
   },
 });

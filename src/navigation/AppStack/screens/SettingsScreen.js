@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import { colors } from '../../../theme';
+import { useTheme } from '../../../theme';
 
 const SettingsScreen = ({ navigation }) => {
+  const { colors, isDarkMode, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [locationServices, setLocationServices] = useState(true);
 
   const settingsSections = [
@@ -42,8 +42,8 @@ const SettingsScreen = ({ navigation }) => {
           title: 'Dark Mode',
           subtitle: 'Use dark theme',
           type: 'switch',
-          value: darkMode,
-          onValueChange: setDarkMode,
+          value: isDarkMode,
+          onValueChange: toggleTheme,
         },
         {
           title: 'Location Services',
@@ -57,6 +57,12 @@ const SettingsScreen = ({ navigation }) => {
     {
       title: 'Account',
       items: [
+        {
+          title: 'Theme Demo',
+          subtitle: 'Preview dark and light themes',
+          type: 'link',
+          onPress: () => navigation.navigate('ThemeDemo'),
+        },
         {
           title: 'Change Password',
           subtitle: 'Update your password',
@@ -81,10 +87,10 @@ const SettingsScreen = ({ navigation }) => {
 
   const renderSettingItem = (item, index) => {
     return (
-      <View key={index} style={styles.settingItem}>
+      <View key={index} style={[styles.settingItem, { borderBottomColor: colors.border }]}>
         <View style={styles.settingInfo}>
-          <Text style={styles.settingTitle}>{item.title}</Text>
-          <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+          <Text style={[styles.settingTitle, { color: colors.text }]}>{item.title}</Text>
+          <Text style={[styles.settingSubtitle, { color: colors.textSecondary }]}>{item.subtitle}</Text>
         </View>
         {item.type === 'switch' ? (
           <Switch
@@ -95,7 +101,7 @@ const SettingsScreen = ({ navigation }) => {
           />
         ) : (
           <TouchableOpacity onPress={item.onPress}>
-            <Text style={styles.linkText}>›</Text>
+            <Text style={[styles.linkText, { color: colors.textSecondary }]}>›</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -103,20 +109,20 @@ const SettingsScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>‹ Back</Text>
+          <Text style={[styles.backButton, { color: colors.primary }]}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
         <View style={styles.placeholder} />
       </View>
       
       <ScrollView style={styles.content}>
         {settingsSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionContent}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
+            <View style={[styles.sectionContent, { backgroundColor: colors.surface }]}>
               {section.items.map((item, itemIndex) =>
                 renderSettingItem(item, itemIndex)
               )}
@@ -131,7 +137,6 @@ const SettingsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -140,17 +145,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backButton: {
     fontSize: 16,
-    color: colors.primary,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
   },
   placeholder: {
     width: 50,
@@ -165,11 +167,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text,
     marginBottom: 15,
   },
   sectionContent: {
-    backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
   },
@@ -180,7 +180,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   settingInfo: {
     flex: 1,
@@ -188,16 +187,13 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.text,
     marginBottom: 2,
   },
   settingSubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   linkText: {
     fontSize: 18,
-    color: colors.textSecondary,
   },
 });
 

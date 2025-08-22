@@ -5,7 +5,8 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { colors, typography, spacing, shadows } from '../../../theme';
+import { useTheme } from '../../../theme';
+import { typography, spacing, shadows } from '../../../theme';
 
 const Button = ({
   title,
@@ -18,28 +19,29 @@ const Button = ({
   textStyle,
   ...props
 }) => {
+  const { colors } = useTheme();
   const getButtonStyle = () => {
     const baseStyle = [styles.button, styles[size]];
     
     switch (variant) {
       case 'primary':
-        baseStyle.push(styles.primary);
+        baseStyle.push([styles.primary, { backgroundColor: colors.primary }]);
         break;
       case 'secondary':
-        baseStyle.push(styles.secondary);
+        baseStyle.push([styles.secondary, { backgroundColor: colors.secondary }]);
         break;
       case 'outline':
-        baseStyle.push(styles.outline);
+        baseStyle.push([styles.outline, { borderColor: colors.primary }]);
         break;
       case 'ghost':
         baseStyle.push(styles.ghost);
         break;
       default:
-        baseStyle.push(styles.primary);
+        baseStyle.push([styles.primary, { backgroundColor: colors.primary }]);
     }
     
     if (disabled) {
-      baseStyle.push(styles.disabled);
+      baseStyle.push([styles.disabled, { backgroundColor: colors.border, borderColor: colors.border }]);
     }
     
     return baseStyle;
@@ -50,17 +52,17 @@ const Button = ({
     
     switch (variant) {
       case 'outline':
-        baseTextStyle.push(styles.outlineText);
+        baseTextStyle.push([styles.outlineText, { color: colors.primary }]);
         break;
       case 'ghost':
-        baseTextStyle.push(styles.ghostText);
+        baseTextStyle.push([styles.ghostText, { color: colors.primary }]);
         break;
       default:
-        baseTextStyle.push(styles.primaryText);
+        baseTextStyle.push([styles.primaryText, { color: colors.white }]);
     }
     
     if (disabled) {
-      baseTextStyle.push(styles.disabledText);
+      baseTextStyle.push([styles.disabledText, { color: colors.textSecondary }]);
     }
     
     return baseTextStyle;
@@ -113,24 +115,23 @@ const styles = StyleSheet.create({
   
   // Variant styles
   primary: {
-    backgroundColor: colors.primary,
+    // backgroundColor will be set dynamically
   },
   secondary: {
-    backgroundColor: colors.secondary,
+    // backgroundColor will be set dynamically
   },
   outline: {
-    backgroundColor: colors.transparent,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: colors.primary,
+    // borderColor will be set dynamically
   },
   ghost: {
-    backgroundColor: colors.transparent,
+    backgroundColor: 'transparent',
   },
   
   // Disabled state
   disabled: {
-    backgroundColor: colors.border,
-    borderColor: colors.border,
+    // backgroundColor and borderColor will be set dynamically
   },
   
   // Text styles
@@ -150,19 +151,19 @@ const styles = StyleSheet.create({
   
   // Text variants
   primaryText: {
-    color: colors.white,
+    // color will be set dynamically
   },
   secondaryText: {
-    color: colors.white,
+    color: 'white',
   },
   outlineText: {
-    color: colors.primary,
+    // color will be set dynamically
   },
   ghostText: {
-    color: colors.primary,
+    // color will be set dynamically
   },
   disabledText: {
-    color: colors.textSecondary,
+    // color will be set dynamically
   },
 });
 

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme';
 import { barberService } from '../services/barberService';
+import availabilityService from '../services/availabilityService';
 
 const SearchBarbersScreen = ({ 
   onBack,
@@ -20,11 +21,14 @@ const SearchBarbersScreen = ({
   searchResults,
   searchLoading,
   searchPerformed,
-  setSearchPerformed
+  setSearchPerformed,
+  onBookAppointment,
+  currentUser
 }) => {
   const { colors } = useTheme();
   const [location, setLocation] = useState('');
   const [barbers, setBarbers] = useState([]);
+  const [barberAvailability, setBarberAvailability] = useState({});
 
   const popularCities = ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix', 'Philadelphia'];
 
@@ -41,6 +45,21 @@ const SearchBarbersScreen = ({
       
       if (result.success) {
         setBarbers(result.barbers);
+        
+        // Load availability for each barber
+        const availabilityData = {};
+        for (const barber of result.barbers) {
+          try {
+            const availabilityResult = await availabilityService.getBarberWorkingHours(barber.uid);
+            if (availabilityResult.success) {
+              availabilityData[barber.uid] = availabilityResult.workingHours;
+            }
+          } catch (error) {
+            console.log('Error loading availability for barber:', barber.uid, error);
+          }
+        }
+        setBarberAvailability(availabilityData);
+        
         if (result.barbers.length === 0) {
           Alert.alert('No Results', `No barbers found in ${location}`);
         }
@@ -101,13 +120,34 @@ const SearchBarbersScreen = ({
           {item.location?.address && (
             <Text style={[styles.detailText, { color: colors.textSecondary }]}>📍 {item.location.address}</Text>
           )}
+          
+          {/* Availability Information */}
+          {barberAvailability[item.uid] && (
+            <View style={styles.availabilityContainer}>
+              <Text style={[styles.availabilityTitle, { color: colors.text }]}>📅 Working Hours:</Text>
+              {Object.entries(barberAvailability[item.uid]).slice(0, 3).map(([day, hours]) => (
+                <Text key={day} style={[styles.availabilityText, { color: colors.textSecondary }]}>
+                  {day.charAt(0).toUpperCase() + day.slice(1)}: {hours.hours}
+                </Text>
+              ))}
+              {Object.keys(barberAvailability[item.uid]).length > 3 && (
+                <Text style={[styles.availabilityText, { color: colors.textSecondary }]}>
+                  ... and {Object.keys(barberAvailability[item.uid]).length - 3} more days
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
               <View style={styles.barberActions}>
           <TouchableOpacity
             style={[styles.bookButton, { backgroundColor: colors.primary }]}
             onPress={() => {
-              Alert.alert('Book Appointment', `Booking appointment with ${item.businessName || item.name}`);
+              if (onBookAppointment && currentUser) {
+                onBookAppointment(item);
+              } else {
+                Alert.alert('Error', 'Please login to book appointments');
+              }
             }}
           >
             <Text style={[styles.bookButtonText, { color: colors.white }]}>Book Appointment</Text>
@@ -378,6 +418,21 @@ const styles = StyleSheet.create({
   detailText: {
     fontSize: 14,
     marginBottom: 5,
+  },
+  availabilityContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  availabilityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  availabilityText: {
+    fontSize: 12,
+    marginBottom: 2,
   },
   barberActions: {
     flexDirection: 'row',

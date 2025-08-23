@@ -39,6 +39,7 @@ export const barberService = {
           if (barberCity.includes(searchLocation) || searchLocation.includes(barberCity)) {
             barbers.push({
               id: doc.id,
+              uid: doc.id, // Add uid field for compatibility
               name: barberData.name || barberData.businessName || 'Unknown',
               businessName: barberData.businessName || barberData.name || 'Barbershop',
               location: barberData.location || { city: 'Unknown', address: 'Unknown' },

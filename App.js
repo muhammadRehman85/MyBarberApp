@@ -3,6 +3,9 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  View,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 
 // Import theme provider
@@ -24,9 +27,40 @@ import SearchBarbersScreen from './src/screens/SearchBarbersScreen';
 import ClientRegisterScreen from './src/screens/ClientRegisterScreen';
 import BarberRegisterScreen from './src/screens/BarberRegisterScreen';
 import VerificationPendingScreen from './src/screens/VerificationPendingScreen';
+import AppointmentManagementScreen from './src/screens/AppointmentManagementScreen';
+import CalendarViewScreen from './src/screens/CalendarViewScreen';
+import BookAppointmentScreen from './src/screens/BookAppointmentScreen';
+import NotificationSettings from './src/components/barber/NotificationSettings';
+import SetAvailabilityScreen from './src/screens/SetAvailabilityScreen';
 
 const AppContent = () => {
   const { colors, isDarkMode } = useTheme();
+  
+  // Initialize notification service with error handling
+  React.useEffect(() => {
+    try {
+      // Try the safe service first (guaranteed to work)
+      require('./src/services/safeNotificationService');
+      console.log('Safe notification service initialized successfully');
+    } catch (error) {
+      console.log('Safe notification service failed:', error);
+      try {
+        // Fallback to full service
+        require('./src/services/notificationService');
+        console.log('Full notification service initialized successfully');
+      } catch (fullError) {
+        console.log('Full notification service failed:', fullError);
+        try {
+          // Final fallback to simple service
+          require('./src/services/simpleNotificationService');
+          console.log('Simple notification service initialized successfully');
+        } catch (simpleError) {
+          console.log('All notification services failed to initialize:', simpleError);
+        }
+      }
+    }
+  }, []);
+  
   // Navigation state
   const [currentScreen, setCurrentScreen] = useState('welcome');
   const [userRole, setUserRole] = useState(null); // 'barber' or 'client'
@@ -49,58 +83,11 @@ const AppContent = () => {
     { id: 7, day: 'Sunday', time: 'Closed', isAvailable: false },
   ]);
 
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      clientName: 'John Smith',
-      service: 'Haircut & Beard',
-      date: '2024-01-15',
-      time: '10:00 AM',
-      status: 'confirmed',
-      phone: '+1234567890',
-      price: '$35'
-    },
-    {
-      id: 2,
-      clientName: 'Mike Johnson',
-      service: 'Haircut',
-      date: '2024-01-15',
-      time: '11:30 AM',
-      status: 'pending',
-      phone: '+1234567891',
-      price: '$25'
-    },
-    {
-      id: 3,
-      clientName: 'David Wilson',
-      service: 'Beard Trim',
-      date: '2024-01-15',
-      time: '02:00 PM',
-      status: 'confirmed',
-      phone: '+1234567892',
-      price: '$15'
-    },
-    {
-      id: 4,
-      clientName: 'Alex Brown',
-      service: 'Haircut',
-      date: '2024-01-16',
-      time: '09:00 AM',
-      status: 'confirmed',
-      phone: '+1234567893',
-      price: '$25'
-    },
-    {
-      id: 5,
-      clientName: 'Tom Davis',
-      service: 'Hair & Beard',
-      date: '2024-01-16',
-      time: '02:30 PM',
-      status: 'pending',
-      phone: '+1234567894',
-      price: '$35'
-    }
-  ]);
+  // Current screen state for barber navigation
+  const [barberCurrentScreen, setBarberCurrentScreen] = useState('dashboard');
+
+  const [appointments, setAppointments] = useState([]);
+  const [clientAppointments, setClientAppointments] = useState([]);
 
   const [clients, setClients] = useState([
     {
@@ -160,6 +147,9 @@ const AppContent = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchPerformed, setSearchPerformed] = useState(false);
+  
+  // Booking states
+  const [selectedBarber, setSelectedBarber] = useState(null);
 
   // Navigation handlers
   const handleGetStarted = () => {
@@ -194,6 +184,7 @@ const AppContent = () => {
       const { auth, db } = require('./src/config/firebase');
       const { signInWithEmailAndPassword } = require('firebase/auth');
       const { doc, getDoc } = require('firebase/firestore');
+      const appointmentService = require('./src/services/appointmentService').default;
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userDoc = await getDoc(doc(db, 'barbers', userCredential.user.uid));
@@ -210,6 +201,12 @@ const AppContent = () => {
           setCurrentUser({ ...userData, uid: userCredential.user.uid });
           setUserRole('barber');
           setCurrentScreen('barber-dashboard');
+          
+          // Load barber's appointments
+          const appointmentsResult = await appointmentService.getBarberAppointments(userCredential.user.uid);
+          if (appointmentsResult.success) {
+            setAppointments(appointmentsResult.appointments);
+          }
         }
       } else {
         Alert.alert('Error', 'Barber account not found');
@@ -227,6 +224,7 @@ const AppContent = () => {
       const { auth, db } = require('./src/config/firebase');
       const { signInWithEmailAndPassword } = require('firebase/auth');
       const { doc, getDoc } = require('firebase/firestore');
+      const appointmentService = require('./src/services/appointmentService').default;
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userDoc = await getDoc(doc(db, 'clients', userCredential.user.uid));
@@ -236,6 +234,12 @@ const AppContent = () => {
         setCurrentUser({ ...userData, uid: userCredential.user.uid });
         setUserRole('client');
         setCurrentScreen('client-dashboard');
+        
+        // Load client's appointments
+        const appointmentsResult = await appointmentService.getClientAppointments(userCredential.user.uid);
+        if (appointmentsResult.success) {
+          setClientAppointments(appointmentsResult.appointments);
+        }
       } else {
         Alert.alert('Error', 'Client account not found');
       }
@@ -265,6 +269,61 @@ const AppContent = () => {
     setCurrentScreen('welcome');
   };
 
+  // Appointment management handlers
+  const handleBackToBarberDashboard = () => {
+    setBarberCurrentScreen('dashboard');
+  };
+
+  const handleUpdateAppointmentStatus = async (appointmentId, newStatus) => {
+    try {
+      const appointmentService = require('./src/services/appointmentService').default;
+      const result = await appointmentService.updateAppointmentStatus(appointmentId, newStatus);
+      
+      if (result.success) {
+        // Update local state
+        setAppointments(prevAppointments => 
+          prevAppointments.map(appointment => 
+            appointment.id === appointmentId 
+              ? { ...appointment, status: newStatus }
+              : appointment
+          )
+        );
+      } else {
+        Alert.alert('Error', result.error || 'Failed to update appointment status');
+      }
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      Alert.alert('Error', 'Failed to update appointment status');
+    }
+  };
+
+  // Add sample appointments for testing
+  const handleAddSampleAppointments = async () => {
+    if (!currentUser) {
+      Alert.alert('Error', 'No barber logged in');
+      return;
+    }
+
+    try {
+      const appointmentService = require('./src/services/appointmentService').default;
+      const result = await appointmentService.addSampleAppointments(currentUser.uid);
+      
+      if (result.success) {
+        // Reload appointments
+        const appointmentsResult = await appointmentService.getBarberAppointments(currentUser.uid);
+        if (appointmentsResult.success) {
+          setAppointments(appointmentsResult.appointments);
+        }
+        Alert.alert('Success', 'Sample appointments added!');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to add sample appointments');
+      }
+    } catch (error) {
+      console.error('Error adding sample appointments:', error);
+      Alert.alert('Error', 'Failed to add sample appointments');
+    }
+  };
+
   const handleBarberRegister = () => {
     setCurrentScreen('barber-register');
   };
@@ -292,27 +351,31 @@ const AppContent = () => {
 
   // Barber dashboard handlers
   const handleSetAvailability = () => {
-    setCurrentScreen('set-availability');
+    setBarberCurrentScreen('set-availability');
   };
 
   const handleManageAppointments = () => {
-    setCurrentScreen('manage-appointments');
+    setBarberCurrentScreen('appointment-management');
   };
 
   const handleCalendarView = () => {
-    setCurrentScreen('calendar-view');
+    setBarberCurrentScreen('calendar-view');
   };
 
   const handleManageClients = () => {
-    setCurrentScreen('manage-clients');
+    setBarberCurrentScreen('manage-clients');
   };
 
   const handleViewEarnings = () => {
-    setCurrentScreen('view-earnings');
+    setBarberCurrentScreen('view-earnings');
   };
 
   const handleManageServices = () => {
-    setCurrentScreen('manage-services');
+    setBarberCurrentScreen('manage-services');
+  };
+
+  const handleNotificationSettings = () => {
+    setBarberCurrentScreen('notification-settings');
   };
 
   const handleProfile = () => {
@@ -321,6 +384,42 @@ const AppContent = () => {
 
   // Client dashboard handlers
   const handleSearchBarbers = () => {
+    setCurrentScreen('search-barbers');
+  };
+
+  const handleViewBookings = () => {
+    setCurrentScreen('client-bookings');
+  };
+
+  // Booking handlers
+  const handleBookAppointment = (barber) => {
+    console.log('Setting selected barber:', barber);
+    if (!barber) {
+      Alert.alert('Error', 'No barber selected');
+      return;
+    }
+    setSelectedBarber(barber);
+    setCurrentScreen('book-appointment');
+  };
+
+  const handleBookingSuccess = async () => {
+    // Refresh client appointments
+    if (currentUser && userRole === 'client') {
+      try {
+        const appointmentService = require('./src/services/appointmentService').default;
+        const appointmentsResult = await appointmentService.getClientAppointments(currentUser.uid);
+        if (appointmentsResult.success) {
+          setClientAppointments(appointmentsResult.appointments);
+        }
+      } catch (error) {
+        console.error('Error refreshing appointments:', error);
+      }
+    }
+    Alert.alert('Success', 'Your booking request has been sent!');
+  };
+
+  const handleBackFromBooking = () => {
+    setSelectedBarber(null);
     setCurrentScreen('search-barbers');
   };
 
@@ -391,28 +490,116 @@ const AppContent = () => {
         );
 
       case 'barber-dashboard':
-        return (
-          <BarberDashboard 
-            appointments={appointments}
-            clients={clients}
-            onSetAvailability={handleSetAvailability}
-            onManageAppointments={handleManageAppointments}
-            onCalendarView={handleCalendarView}
-            onManageClients={handleManageClients}
-            onViewEarnings={handleViewEarnings}
-            onManageServices={handleManageServices}
-            onProfile={handleProfile}
-          />
-        );
+        if (barberCurrentScreen === 'appointment-management') {
+          return (
+            <AppointmentManagementScreen 
+              appointments={appointments}
+              onUpdateAppointmentStatus={handleUpdateAppointmentStatus}
+              onBack={handleBackToBarberDashboard}
+            />
+          );
+        }
+        if (barberCurrentScreen === 'calendar-view') {
+          return (
+            <CalendarViewScreen 
+              appointments={appointments}
+              onBack={handleBackToBarberDashboard}
+            />
+          );
+        }
+                 if (barberCurrentScreen === 'set-availability') {
+           return (
+             <SetAvailabilityScreen 
+               onBack={handleBackToBarberDashboard}
+               currentUser={currentUser}
+             />
+           );
+         }
+        if (barberCurrentScreen === 'manage-clients') {
+          return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+              <Text style={{ color: colors.text, fontSize: 18 }}>Manage Clients Screen</Text>
+              <TouchableOpacity 
+                style={{ marginTop: 20, padding: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                onPress={handleBackToBarberDashboard}
+              >
+                <Text style={{ color: colors.surface }}>Back to Dashboard</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        if (barberCurrentScreen === 'view-earnings') {
+          return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+              <Text style={{ color: colors.text, fontSize: 18 }}>View Earnings Screen</Text>
+              <TouchableOpacity 
+                style={{ marginTop: 20, padding: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                onPress={handleBackToBarberDashboard}
+              >
+                <Text style={{ color: colors.surface }}>Back to Dashboard</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+                 if (barberCurrentScreen === 'manage-services') {
+           return (
+             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+               <Text style={{ color: colors.text, fontSize: 18 }}>Manage Services Screen</Text>
+               <TouchableOpacity 
+                 style={{ marginTop: 20, padding: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                 onPress={handleBackToBarberDashboard}
+               >
+                 <Text style={{ color: colors.surface }}>Back to Dashboard</Text>
+               </TouchableOpacity>
+             </View>
+           );
+         }
+         if (barberCurrentScreen === 'notification-settings') {
+           return (
+             <NotificationSettings 
+               onBack={handleBackToBarberDashboard}
+             />
+           );
+         }
+                 return (
+           <BarberDashboard 
+             appointments={appointments}
+             clients={clients}
+             onSetAvailability={handleSetAvailability}
+             onManageAppointments={handleManageAppointments}
+             onCalendarView={handleCalendarView}
+             onManageClients={handleManageClients}
+             onViewEarnings={handleViewEarnings}
+             onManageServices={handleManageServices}
+             onNotificationSettings={handleNotificationSettings}
+             onProfile={handleProfile}
+             onAddSampleAppointments={handleAddSampleAppointments}
+           />
+         );
 
-      case 'client-dashboard':
-        return (
-          <ClientDashboard 
-            onSearchBarbers={handleSearchBarbers}
-            onProfile={handleProfile}
-            onViewServices={handleViewServices}
-          />
-        );
+             case 'client-dashboard':
+         return (
+           <ClientDashboard 
+             onSearchBarbers={handleSearchBarbers}
+             onProfile={handleProfile}
+             onViewServices={handleViewServices}
+             onViewBookings={handleViewBookings}
+             appointments={clientAppointments}
+           />
+         );
+
+       case 'client-bookings':
+         return (
+           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+             <Text style={{ color: colors.text, fontSize: 18 }}>Client Bookings Screen</Text>
+             <TouchableOpacity 
+               style={{ marginTop: 20, padding: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+               onPress={() => setCurrentScreen('client-dashboard')}
+             >
+               <Text style={{ color: colors.surface }}>Back to Dashboard</Text>
+             </TouchableOpacity>
+           </View>
+         );
 
       case 'user-profile':
         return (
@@ -431,18 +618,43 @@ const AppContent = () => {
           />
         );
 
-      case 'search-barbers':
-        return (
-          <SearchBarbersScreen 
-            onBack={handleBackToDashboard}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchResults={searchResults}
-            searchLoading={searchLoading}
-            searchPerformed={searchPerformed}
-            setSearchPerformed={setSearchPerformed}
-          />
-        );
+             case 'search-barbers':
+         return (
+           <SearchBarbersScreen 
+             onBack={handleBackToDashboard}
+             searchQuery={searchQuery}
+             setSearchQuery={setSearchQuery}
+             searchResults={searchResults}
+             searchLoading={searchLoading}
+             searchPerformed={searchPerformed}
+             setSearchPerformed={setSearchPerformed}
+             onBookAppointment={handleBookAppointment}
+             currentUser={currentUser}
+           />
+         );
+
+       case 'book-appointment':
+         if (!selectedBarber) {
+           return (
+             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+               <Text style={{ color: colors.text, fontSize: 18 }}>No barber selected</Text>
+               <TouchableOpacity 
+                 style={{ marginTop: 20, padding: 10, backgroundColor: colors.primary, borderRadius: 8 }}
+                 onPress={() => setCurrentScreen('search-barbers')}
+               >
+                 <Text style={{ color: colors.surface }}>Back to Search</Text>
+               </TouchableOpacity>
+             </View>
+           );
+         }
+         return (
+           <BookAppointmentScreen 
+             barber={selectedBarber}
+             currentUser={currentUser}
+             onBack={handleBackFromBooking}
+             onBookingSuccess={handleBookingSuccess}
+           />
+         );
 
       default:
         return (
